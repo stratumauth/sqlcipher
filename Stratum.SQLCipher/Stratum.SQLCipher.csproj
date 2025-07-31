@@ -1,0 +1,33 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
+        <PackageId>StratumAuth.SQLCipher</PackageId>
+        <Version>0.1.0</Version>
+        <Authors>jamie-mh</Authors>
+        <Copyright>Copyright (c) jamie-mh 2025</Copyright>
+        <ProjectUrl>https://stratumauth.com</ProjectUrl>
+        <RepositoryUrl>https://github.com/stratumauth/sqlcipher</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+        <Description>Build of SQLCipher for Stratum</Description>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RootNamespace>Stratum.SQLCipher</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="runtimes/android-arm64-v8a/libsqlcipher.so" PackagePath="runtimes/android-arm64/native/" Pack="true" />
+        <None Include="runtimes/android-armeabi-v7a/libsqlcipher.so" PackagePath="runtimes/android-arm/native/" Pack="true" />
+        <None Include="runtimes/android-x86_64/libsqlcipher.so" PackagePath="runtimes/android-x64/native/" Pack="true" />
+        <None Include="../README.md" Pack="true" PackagePath="/"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="SQLitePCLRaw.core" Version="3.0.0" />
+      <PackageReference Include="SQLitePCLRaw.provider.sqlcipher" Version="3.0.0" />
+    </ItemGroup>
+
+</Project>

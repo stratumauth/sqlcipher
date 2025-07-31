@@ -1,0 +1,109 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+env:
+  FRAMEWORK: net9.0
+  CONFIGURATION: Release
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  MIN_SDK: 21
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - aarch64-linux-android
+          - armv7a-linux-androideabi
+          - x86_64-linux-android
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Build OpenSSL
+        run: |
+          declare -A TARGETS
+          TARGETS["aarch64-linux-android"]=android-arm64
+          TARGETS["armv7a-linux-androideabi"]=android-arm
+          TARGETS["x86_64-linux-android"]=android-x86_64
+          TARGETS["i686-linux-android"]=android-x86
+          
+          TOOLCHAIN="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64"
+          export PATH="$TOOLCHAIN/bin:$PATH"
+          
+          cd openssl
+          ./Configure ${TARGETS[${{ matrix.toolchain }}]} -D__ANDROID_API__=$MIN_SDK -static -fpic -no-shared -no-fuzz-afl -no-fuzz-libfuzzer -no-tests -no-apps '-Wno-macro-redefined'
+          make -j 4
+          
+      - name: Build SQLCipher
+        run: |
+          TOOLCHAIN="$ANDROID_NDK/toolchains/llvm/prebuilt/linux-x86_64"
+          TARGET="${{ matrix.toolchain }}$MIN_SDK"
+          OPENSSL_HEADERS=$(realpath openssl/include)
+          OPENSSL_LIB=$(realpath openssl/libcrypto.a)
+
+          export CC="$TOOLCHAIN/bin/clang --target=$TARGET"
+          export CXX="$TOOLCHAIN/bin/clang++ --target=$TARGET"
+          export LD="$TOOLCHAIN/bin/ld"
+          
+          cd sqlcipher
+          ./configure --with-tempstore=yes CFLAGS="-DSQLITE_HAS_CODEC -DSQLITE_EXTRA_INIT=sqlcipher_extra_init -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown -D__ANDROID_API__=$MIN_SDK -I$OPENSSL_HEADERS" LDFLAGS="$OPENSSL_LIB -llog -Wl,-z,max-page-size=16384"
+          make -j 4
+
+          "$TOOLCHAIN/bin/llvm-strip" libsqlite3.so
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sqlcipher-${{ matrix.toolchain }}
+          path: sqlcipher/libsqlite3.so
+
+  package:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9'
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: sqlcipher-*
+          path: artifacts
+
+      - name: Build
+        run: |
+          mkdir -p "Stratum.SQLCipher/runtimes/android-arm64-v8a"
+          cp "artifacts/sqlcipher-aarch64-linux-android/libsqlite3.so" "Stratum.SQLCipher/runtimes/android-arm64-v8a/libsqlcipher.so"
+          
+          mkdir -p "Stratum.SQLCipher/runtimes/android-armeabi-v7a"
+          cp "artifacts/sqlcipher-armv7a-linux-androideabi/libsqlite3.so" "Stratum.SQLCipher/runtimes/android-armeabi-v7a/libsqlcipher.so"
+          
+          mkdir -p "Stratum.SQLCipher/runtimes/android-x86_64"
+          cp "artifacts/sqlcipher-x86_64-linux-android/libsqlite3.so" "Stratum.SQLCipher/runtimes/android-x86_64/libsqlcipher.so"
+
+          dotnet build --configuration $CONFIGURATION Stratum.SQLCipher.sln
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stratum-sqlcipher
+          path: Stratum.SQLCipher/bin/**/Stratum.SQLCipher*.nupkg
+
+      - name: Publish package
+        run: |
+          pkg=$(find Stratum.SQLCipher/bin/$CONFIGURATION/ -name '*.nupkg')
+          dotnet nuget push $pkg --api-key ${{ secrets.NUGET_KEY }} --source https://api.nuget.org/v3/index.json
