@@ -97,12 +97,6 @@ jobs:
 
           dotnet build --configuration $CONFIGURATION Stratum.SQLCipher.sln
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: stratum-sqlcipher
-          path: Stratum.SQLCipher/bin/**/Stratum.SQLCipher*.nupkg
-
       - name: Publish package
         run: |
           pkg=$(find Stratum.SQLCipher/bin/$CONFIGURATION/ -name '*.nupkg')
