@@ -39,7 +39,7 @@ jobs:
           export PATH="$TOOLCHAIN/bin:$PATH"
           
           cd openssl
-          ./Configure ${TARGETS[${{ matrix.toolchain }}]} -D__ANDROID_API__=$MIN_SDK -static -fpic -no-shared -no-fuzz-afl -no-fuzz-libfuzzer -no-tests -no-apps '-Wno-macro-redefined'
+          ./Configure ${TARGETS[${{ matrix.toolchain }}]} -D__ANDROID_API__=$MIN_SDK -static -fpic -no-shared -no-fuzz-afl -no-fuzz-libfuzzer -no-tests -no-apps -ffunction-sections -fdata-sections '-Wno-macro-redefined'
           make -j 4
           
       - name: Build SQLCipher
@@ -54,7 +54,7 @@ jobs:
           export LD="$TOOLCHAIN/bin/ld"
           
           cd sqlcipher
-          ./configure --with-tempstore=yes CFLAGS="-DSQLITE_HAS_CODEC -DSQLITE_EXTRA_INIT=sqlcipher_extra_init -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown -D__ANDROID_API__=$MIN_SDK -I$OPENSSL_HEADERS" LDFLAGS="$OPENSSL_LIB -llog -Wl,-z,max-page-size=16384"
+          ./configure --with-tempstore=yes CFLAGS="-DSQLITE_HAS_CODEC -DSQLITE_EXTRA_INIT=sqlcipher_extra_init -DSQLITE_EXTRA_SHUTDOWN=sqlcipher_extra_shutdown -D__ANDROID_API__=$MIN_SDK -I$OPENSSL_HEADERS" LDFLAGS="$OPENSSL_LIB -llog -Wl,-z,max-page-size=16384,--gc-sections"
           make -j 4
 
           "$TOOLCHAIN/bin/llvm-strip" libsqlite3.so
