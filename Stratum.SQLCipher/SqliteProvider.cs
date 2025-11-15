@@ -1,6 +1,6 @@
 namespace Stratum.SQLCipher;
 
-public static class Provider
+public static class SqliteProvider
 {
     public static void Init()
     {
